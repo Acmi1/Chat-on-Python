@@ -157,9 +157,11 @@ if __name__ == "__main__":
     choice = input("Выберите режим:\n1. Создать сервер\n2. Подключиться к серверу\nВаш выбор: ")
     
     if choice == "1":
+        HOST = input("Введите IP адрес чтоб создать на нем хост; ")
         server = Server()
         server.start()
     elif choice == "2":
+        HOST = input("Введите IP адрес чтобы подключиться к хосту который создал на этом адресе: ")
         client = Client()
         client.connect()
     else:
