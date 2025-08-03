@@ -2,19 +2,29 @@ import socket
 import threading
 
 # Настройки соединения
-HOST = 'localhost'
-PORT = 8080
+HOST = 'localhost'  # Адрес хоста
+PORT = 8080         # Порт
+
+# Команды
+COMMANDS = {
+    '/help': 'Показать доступные команды',
+    '/nick': 'Изменить ваш никнейм',
+    '/exit': 'Закрыть сессию',
+}
 
 def send_message(sock, message):
-    sock.sendall(message.encode())
+    """Отправка сообщения."""
+    sock.sendall(message.encode('utf-8'))
 
 def receive_message(sock):
-    return sock.recv(1024).decode()
+    """Получение сообщения."""
+    return sock.recv(1024).decode('utf-8')
 
 class Server:
     def __init__(self):
         self.server_socket = None
         self.client_socket = None
+        self.nickname = "Server"
     
     def start(self):
         print("Запускаем сервер...")
@@ -27,22 +37,40 @@ class Server:
         print(f"Пользователь подключился с адреса {addr}")
         self.client_socket = client_sock
         
-        # Запускаем поток для приема сообщений от клиента
+        # Запрашиваем никнейм у клиента
+        send_message(self.client_socket, "Введите свой никнейм:")
+        nickname = receive_message(self.client_socket)
+        print(f"{nickname} присоединился к чату.")
+        
+        # Поток для приема сообщений от клиента
         recv_thread = threading.Thread(target=self.receive_messages)
         recv_thread.start()
         
+        # Основной цикл отправки сообщений сервером
         while True:
             command = input("\n>>> ")
             
-            if command.lower() == "/quit":
-                break
-                
-            elif command.startswith("/"):
-                print("Неверная команда")
-                continue
-            
+            if command.lower().startswith('/'):
+                if command.strip() in COMMANDS.keys():
+                    if command.strip() == '/help':
+                        for cmd, desc in COMMANDS.items():
+                            print(f"{cmd}: {desc}")
+                    
+                    elif command.strip() == '/nick':
+                        new_nick = input("Новый никнейм: ").strip()
+                        if len(new_nick) > 0:
+                            self.nickname = new_nick
+                            print(f"Ваш новый никнейм: {new_nick}")
+                        else:
+                            print("Никнейм пуст. Никнейм не изменён.")
+                    
+                    elif command.strip() == '/exit':
+                        break
+                else:
+                    print("Команда не найдена.")
             else:
-                send_message(self.client_socket, command)
+                full_message = f"[{self.nickname}] {command}"
+                send_message(self.client_socket, full_message)
         
         # Завершаем работу сервера
         self.shutdown()
@@ -72,6 +100,7 @@ class Server:
 class Client:
     def __init__(self):
         self.client_socket = None
+        self.nickname = ""
     
     def connect(self):
         print("Подключение к серверу...")
@@ -79,13 +108,39 @@ class Client:
         self.client_socket.connect((HOST, PORT))
         print("Успешно подключились!")
         
-        # Запускаем поток для приема сообщений от сервера
+        # Отправляем никнейм серверу
+        self.nickname = input("Введите свой никнейм: ").strip()
+        send_message(self.client_socket, self.nickname)
+        
+        # Поток для приема сообщений от сервера
         recv_thread = threading.Thread(target=self.receive_messages)
         recv_thread.start()
         
+        # Цикл отправки сообщений
         while True:
             message = input("\n>>> ")
-            send_message(self.client_socket, message)
+            
+            if message.lower().startswith('/'):
+                if message.strip() in COMMANDS.keys():
+                    if message.strip() == '/help':
+                        for cmd, desc in COMMANDS.items():
+                            print(f"{cmd}: {desc}")
+                        
+                    elif message.strip() == '/nick':
+                        new_nick = input("Новый никнейм: ").strip()
+                        if len(new_nick) > 0:
+                            self.nickname = new_nick
+                            print(f"Ваш новый никнейм: {new_nick}")
+                        else:
+                            print("Никнейм пуст. Никнейм не изменён.")
+                    
+                    elif message.strip() == '/exit':
+                        break
+                else:
+                    print("Команда не найдена.")
+            else:
+                full_message = f"[{self.nickname}] {message}"
+                send_message(self.client_socket, full_message)
     
     def receive_messages(self):
         while True:
@@ -102,11 +157,9 @@ if __name__ == "__main__":
     choice = input("Выберите режим:\n1. Создать сервер\n2. Подключиться к серверу\nВаш выбор: ")
     
     if choice == "1":
-        HOST = input("Введите IP к которому подключаться клиенты: ")
         server = Server()
         server.start()
     elif choice == "2":
-        HOST = input("Введите IP чтоб подключиться к хосту:  ")
         client = Client()
         client.connect()
     else:
